@@ -1,0 +1,13 @@
+1. add function prototype to file include/unistd.h, and also its NR number.
+
+2. add correpsonding system function prototype in include/linux/sys.h and name in sys_call_table[] in the correct position (NR number). And edit the const nr_system_calls
+
+3. write system function to deal with the data.
+
+4. edit the makefile in kernel.
+
+5. re-make the system.
+
+6. copy the header file include/unistd.h, include/linux/sys.h to the files in os, which is hdc/usr/ after mount.
+
+7. create file who.h in hdc/usr/include
