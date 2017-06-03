@@ -128,6 +128,10 @@ int do_exit(long code)
 		kill_session();
 	current->state = TASK_ZOMBIE;
 	current->exit_code = code;
+
+	/* write process exit log */
+	fprintk(3, "%ld\t%c\t%ld\n", current->pid, 'E', jiffies);
+
 	tell_father(current->father);
 	schedule();
 	return (-1);	/* just to suppress warnings */
@@ -184,6 +188,10 @@ repeat:
 		if (options & WNOHANG)
 			return 0;
 		current->state=TASK_INTERRUPTIBLE;
+
+		/* write process suspend log */
+		fprintk(3, "%ld\t%c\t%ld\n", current->pid, 'W', jiffies);
+
 		schedule();
 		if (!(current->signal &= ~(1<<(SIGCHLD-1))))
 			goto repeat;
