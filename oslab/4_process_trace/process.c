@@ -2,13 +2,89 @@
 #include <unistd.h>
 #include <time.h>
 #include <sys/times.h>
+#include <sys/wait.h>
 
 #define HZ	100
+
+typedef struct tag_process_basic_info
+{
+	int i_pid;
+	int i_has_exit;
+	int i_exit_code;
+}PROCESS_BASIC_S;
+
+typedef struct tag_process_exec_info
+{
+	int i_total_running_time;
+	int i_cpu_time;
+	int i_io_time;
+}PROCESS_EXEC_S;
+
+typedef struct tag_process_info
+{
+	PROCESS_BASIC_S st_process_basic;
+	PROCESS_EXEC_S  st_process_exec;
+}PROCESS_S;
 
 void cpuio_bound(int last, int cpu_time, int io_time);
 
 int main(int argc, char * argv[])
 {
+	PROCESS_S st_child_processes[] =
+	{
+		{{0, 0, 0}, {10, 1, 0}},
+		{{0, 0, 0}, {10, 0, 1}},
+		{{0, 0, 0}, {10, 1, 1}},
+		{{0, 0, 0}, {10, 1, 9}},
+		{{0, 0, 0}, {10, 9, 1}}
+	};
+	int i_processes_num;
+	int i_loop;
+	int i_current_finish_pid;
+	int i_current_exit_code = 0;
+
+	/* create children processes */
+	i_processes_num = sizeof(st_child_processes) / sizeof(PROCESS_S);
+	for (i_loop = 0; i_loop < i_processes_num; i_loop++)
+	{
+		st_child_processes[i_loop].st_process_basic.i_pid = fork();
+		if (!st_child_processes[i_loop].st_process_basic.i_pid)
+		{
+			cpuio_bound(st_child_processes[i_loop].st_process_exec.i_total_running_time,
+				        st_child_processes[i_loop].st_process_exec.i_cpu_time,
+						st_child_processes[i_loop].st_process_exec.i_io_time);
+
+			/* child process no need to create other children processes,
+			   so return directly */
+			return 0;
+		}
+
+		printf("child process[%d] [%d] created\n", i_loop, st_child_processes[i_loop].st_process_basic.i_pid);
+	}
+
+	/* wait for all processes finished */
+	while ((i_current_finish_pid = wait(&i_current_exit_code)) > 0)
+	{
+		for (i_loop = 0; i_loop < i_processes_num; i_loop++)
+		{
+			/* 如果进行已经退出，则不需要再判断 */
+			if (st_child_processes[i_loop].st_process_basic.i_has_exit == 1)
+			{
+				continue;
+			}
+
+			if (st_child_processes[i_loop].st_process_basic.i_pid == i_current_finish_pid)
+			{
+				st_child_processes[i_loop].st_process_basic.i_has_exit = 1;
+				st_child_processes[i_loop].st_process_basic.i_exit_code = i_current_exit_code;
+				printf("child process[%d] [%d] finished, exit code[%d]\n",
+					   i_loop, i_current_finish_pid, i_current_exit_code);
+			}
+		}
+	}
+
+	printf("father process finished\n");
+
 	return 0;
 }
 
