@@ -116,7 +116,12 @@ void schedule(void)
 				}
 			if (((*p)->signal & ~(_BLOCKABLE & (*p)->blocked)) &&
 			(*p)->state==TASK_INTERRUPTIBLE)
+			{
 				(*p)->state=TASK_RUNNING;
+
+				/* write process ready log */
+				fprintk(3, "%ld\t%c\t%ld\n", (*p)->pid, 'J', jiffies);
+			}
 		}
 
 /* this is the scheduler proper: */
@@ -132,7 +137,23 @@ void schedule(void)
 			if ((*p)->state == TASK_RUNNING && (*p)->counter > c)
 				c = (*p)->counter, next = i;
 		}
-		if (c) break;
+		if (c)
+		{
+			if (task[next]->pid != current->pid)
+			{
+				/* If current process is just suspended, then no need to record as ready */
+				if (current->state == TASK_RUNNING)
+				{
+					/* write process ready log */
+					fprintk(3, "%ld\t%c\t%ld\n", current->pid, 'J', jiffies);
+				}
+
+				/* write process running log */
+				fprintk(3, "%ld\t%c\t%ld\n", task[next]->pid, 'R', jiffies);
+			}
+
+			break;
+		}
 		for(p = &LAST_TASK ; p > &FIRST_TASK ; --p)
 			if (*p)
 				(*p)->counter = ((*p)->counter >> 1) +
@@ -144,6 +165,14 @@ void schedule(void)
 int sys_pause(void)
 {
 	current->state = TASK_INTERRUPTIBLE;
+	
+	/* No need to record process 0, as it is used as schedule process */
+	if (current->pid != 0)
+	{
+		/* write process suspend log */
+		fprintk(3, "%ld\t%c\t%ld\n", current->pid, 'W', jiffies);
+	}
+
 	schedule();
 	return 0;
 }
@@ -159,9 +188,18 @@ void sleep_on(struct task_struct **p)
 	tmp = *p;
 	*p = current;
 	current->state = TASK_UNINTERRUPTIBLE;
+
+	/* write process sleep log */
+	fprintk(3, "%ld\t%c\t%ld\n", current->pid, 'W', jiffies);
+
 	schedule();
 	if (tmp)
+	{
 		tmp->state=0;
+
+		/* write process ready log */
+		fprintk(3, "%ld\t%c\t%ld\n", tmp->pid, 'J', jiffies);
+	}
 }
 
 void interruptible_sleep_on(struct task_struct **p)
@@ -175,20 +213,37 @@ void interruptible_sleep_on(struct task_struct **p)
 	tmp=*p;
 	*p=current;
 repeat:	current->state = TASK_INTERRUPTIBLE;
+
+	/* write process sleep log */
+	fprintk(3, "%ld\t%c\t%ld\n", current->pid, 'W', jiffies);
+
 	schedule();
 	if (*p && *p != current) {
 		(**p).state=0;
+
+		/* write process ready log */
+		fprintk(3, "%ld\t%c\t%ld\n", (**p).pid, 'J', jiffies);
+
 		goto repeat;
 	}
 	*p=NULL;
 	if (tmp)
+	{
 		tmp->state=0;
+
+		/* write process ready log */
+		fprintk(3, "%ld\t%c\t%ld\n", tmp->pid, 'J', jiffies);
+	}
 }
 
 void wake_up(struct task_struct **p)
 {
 	if (p && *p) {
 		(**p).state=0;
+
+		/* write process ready log */
+		fprintk(3, "%ld\t%c\t%ld\n", (**p).pid, 'J', jiffies);
+
 		*p=NULL;
 	}
 }
