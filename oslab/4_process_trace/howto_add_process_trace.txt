@@ -1,0 +1,19 @@
+1. open file descriptor before init()
+
+2. add function fprintk() in kernel/printk.c
+
+3. call fprintk() when process created (in fork.c), called (in schedule()), sleeped(when state set TASK_INTERRUPTIBLE or TASK_UNINTERRUPTIBLE), ready(when state set 0 or TASK_RUNNING), quit(in do_exit()), several cases.
+
+4. compile linux-0.11 img file. Run make all.bat in Windows or make in Linux.
+
+5. Add process.c to hdc img. Run "sudo ./mount-hdc" and copy process.c to hdc.
+Then compile process.c properly. Please refer to file in hdc.
+
+6. Run bochs. After start, "./process". After process finished. "sync" and quit.
+
+7. "sudo ./mount-hdc" and get /var/process.log out.
+
+8. chmod 777 ./stat_log.py.
+
+9. ./stat_log.py process.log 7 8 9 10 11
+   to get process info.
