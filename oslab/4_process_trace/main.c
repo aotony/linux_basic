@@ -42,6 +42,7 @@ static inline _syscall0(int,sync)
 static char printbuf[1024];
 
 extern int vsprintf();
+extern void setup_tty(void);
 extern void init(void);
 extern void blk_dev_init(void);
 extern void chr_dev_init(void);
@@ -135,6 +136,9 @@ void start(void)		/* This really IS void, no error here. */
 	floppy_init();
 	sti();
 	move_to_user_mode();
+	
+	setup_tty();
+	
 	if (!fork()) {		/* we count on this going ok */
 		init();
 	}
@@ -165,14 +169,21 @@ static char * envp_rc[] = { "HOME=/", NULL };
 static char * argv[] = { "-/bin/sh",NULL };
 static char * envp[] = { "HOME=/usr/root", NULL };
 
+void setup_tty(void)
+{
+	setup((void *) &drive_info);
+	(void) open("/dev/tty0",O_RDWR,0); //建立文件描述符0(stdin)和/dev/tty0的关联
+	(void) dup(0);                     //文件描述符1(stdout)也和/dev/tty0关联
+	(void) dup(0);                     //文件描述符2(stderr)也和/dev/tty0关联
+
+	/* create file /var/process.log */
+	(void) open("/var/process.log",O_CREAT|O_TRUNC|O_WRONLY,0666);
+}
+
 void init(void)
 {
 	int pid,i;
 
-	setup((void *) &drive_info);
-	(void) open("/dev/tty0",O_RDWR,0);
-	(void) dup(0);
-	(void) dup(0);
 	printf("%d buffers = %d bytes buffer space\n\r",NR_BUFFERS,
 		NR_BUFFERS*BLOCK_SIZE);
 	printf("Free mem: %d bytes\n\r",memory_end-main_memory_start);
